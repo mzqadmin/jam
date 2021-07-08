@@ -2111,6 +2111,8 @@ contract Lottery is LotteryOwnable, Initializable {
     uint256 public issueIndex = 0;
     uint256 public totalAddresses = 0;
     uint256 public totalAmount = 0;
+    uint256 public globalTotalAddresses = 0;
+    uint256 public globalTotalAmount = 0;
     uint256 public lastTimestamp;
 
     uint8[4] public winningNumbers;
@@ -2126,7 +2128,12 @@ contract Lottery is LotteryOwnable, Initializable {
     event DevWithdraw(address indexed user, uint256 amount);
     event Reset(uint256 indexed issueIndex);
     event MultiClaim(address indexed user, uint256 amount);
+    event OnceClaim(address indexed user, uint256 amount, uint256 _tokenId);
     event MultiBuy(address indexed user, uint256 amount);
+    event OnceBuy(address indexed user, uint256 amount, uint256 _tokenId);
+    event SetMaxNumber(uint8 maxNumber);
+    event SetAdminAddress(address indexed admin);
+    event SetAllocation(uint8[3] allocation);
 
     constructor(
         IERC20 _jam,
@@ -2158,6 +2165,7 @@ contract Lottery is LotteryOwnable, Initializable {
         lotteryNFT = _lottery;
         minPrice = _minPrice;
         maxNumber = _maxNumber;
+        require(_owner != address (0), "_owner cat't 0");
         adminAddress = _adminAddress;
         lastTimestamp = block.timestamp;
         allocation = [60, 20, 10];
@@ -2277,6 +2285,7 @@ contract Lottery is LotteryOwnable, Initializable {
         uint256 tokenId = lotteryNFT.newLotteryItem(address(this), _numbers, _price, issueIndex);
         lotteryInfo[issueIndex].push(tokenId);
         totalAmount = totalAmount.add(_price);
+        globalTotalAmount = globalTotalAmount.add(_price);
         lastTimestamp = block.timestamp;
         emit Buy(address(this), tokenId);
 
@@ -2287,15 +2296,17 @@ contract Lottery is LotteryOwnable, Initializable {
         require(!drawingPhase, 'drawing, can not buy now');
         require (_price >= minPrice, 'price must above minPrice');
         for (uint i = 0; i < 4; i++) {
-            require (_numbers[i] <= maxNumber, 'exceed number scope');
+            require (_numbers[i] <= maxNumber && _numbers[i] > 0, 'exceed number scope');
         }
         uint256 tokenId = lotteryNFT.newLotteryItem(msg.sender, _numbers, _price, issueIndex);
         lotteryInfo[issueIndex].push(tokenId);
         if (userInfo[msg.sender].length == 0) {
             totalAddresses = totalAddresses + 1;
+            globalTotalAddresses = globalTotalAddresses + 1;
         }
         userInfo[msg.sender].push(tokenId);
         totalAmount = totalAmount.add(_price);
+        globalTotalAmount = globalTotalAmount.add(_price);
         lastTimestamp = block.timestamp;
         uint64[keyLengthForEachBuy] memory userNumberIndex = generateNumberIndexKey(_numbers);
         for (uint i = 0; i < keyLengthForEachBuy; i++) {
@@ -2307,6 +2318,7 @@ contract Lottery is LotteryOwnable, Initializable {
 
     function  multiBuy(uint256 _price, uint8[4][] memory _numbers) external {
         require (!drawed(), 'drawed, can not buy now');
+        require(!drawingPhase, 'drawing, can not buy now');
         require (_price >= minPrice, 'price must above minPrice');
         uint256 totalPrice  = 0;
         for (uint i = 0; i < _numbers.length; i++) {
@@ -2317,9 +2329,13 @@ contract Lottery is LotteryOwnable, Initializable {
             lotteryInfo[issueIndex].push(tokenId);
             if (userInfo[msg.sender].length == 0) {
                 totalAddresses = totalAddresses + 1;
+                globalTotalAddresses = globalTotalAddresses + 1;
             }
             userInfo[msg.sender].push(tokenId);
             totalAmount = totalAmount.add(_price);
+            // Emit Every Buy
+            emit OnceBuy(msg.sender, _price, tokenId);
+            globalTotalAmount = globalTotalAmount.add(_price);
             lastTimestamp = block.timestamp;
             totalPrice = totalPrice.add(_price);
             uint64[keyLengthForEachBuy] memory numberIndexKey = generateNumberIndexKey(_numbers[i]);
@@ -2350,6 +2366,8 @@ contract Lottery is LotteryOwnable, Initializable {
             uint256 reward = getRewardView(_tickets[i]);
             if(reward>0) {
                 totalReward = reward.add(totalReward);
+                // emit every Claim
+                emit OnceClaim(msg.sender, totalReward, _tickets[i]);
             }
         }
         lotteryNFT.multiClaimReward(_tickets);
@@ -2445,7 +2463,9 @@ contract Lottery is LotteryOwnable, Initializable {
 
     // Update admin address by the previous dev.
     function setAdmin(address _adminAddress) public onlyOwner {
+        require(_owner != address (0), "_owner cat't 0");
         adminAddress = _adminAddress;
+        emit SetAdminAddress(adminAddress);
     }
 
     // Withdraw without caring about rewards. EMERGENCY ONLY.
@@ -2462,11 +2482,13 @@ contract Lottery is LotteryOwnable, Initializable {
     // Set the minimum price for one ticket
     function setMaxNumber(uint8 _maxNumber) external onlyAdmin {
         maxNumber = _maxNumber;
+        emit SetMaxNumber(_maxNumber);
     }
 
     // Set the allocation for one reward
     function setAllocation(uint8 _allcation1, uint8 _allcation2, uint8 _allcation3) external onlyAdmin {
         allocation = [_allcation1, _allcation2, _allcation3];
+        emit SetAllocation(allocation);
     }
 
 }

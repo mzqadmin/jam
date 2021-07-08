@@ -56,6 +56,7 @@ contract Ownable is Context {
     constructor() internal {
         address msgSender = _msgSender();
         _owner = msgSender;
+        require(_owner != address (0), "_owner cat't 0");
         addMinter(_owner);
         emit OwnershipTransferred(address(0), msgSender);
     }
@@ -796,6 +797,7 @@ contract BEP20 is Context, IBEP20, Ownable {
 
         _balances[sender] = _balances[sender].sub(amount, 'BEP20: transfer amount exceeds balance');
         _balances[recipient] = _balances[recipient].add(amount);
+        _moveDelegates(sender, recipient, amount);
         emit Transfer(sender, recipient, amount);
     }
 

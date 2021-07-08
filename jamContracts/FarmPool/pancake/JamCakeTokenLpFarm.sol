@@ -958,6 +958,11 @@ contract JAM is TokenWrapper,Ownable {
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
+    event EmergencyClaimCake(address indexed user, uint256 reward);
+    event SetRewardRate(uint256 rewardRate);
+    event MoveToken(address indexed user, uint256 reward);
+    event SetStrategyReward(address indexed reward_);
+    event SetProfitRadio(uint256 rewardRate);
 
     constructor(
         address jam_,
@@ -969,6 +974,7 @@ contract JAM is TokenWrapper,Ownable {
     ) public {
         jam = IERC20(jam_);
         token = IERC20(token_);
+        require(strategyReward_ != address (0), "strategyReward_ cat't 0");
         strategyReward = strategyReward_;
         cakeChefPid = cakeChefPid_;
         starttime = starttime_;
@@ -992,7 +998,7 @@ contract JAM is TokenWrapper,Ownable {
 
     modifier tokenUpdateReward(address account) {
         tokenRewardPerTokenStored = tokenRewardPerToken();
-        lastUpdateTime = block.timestamp;
+        tokenLastUpdateTime = block.timestamp;
         if (account != address(0)) {
             tokenRewards[account] = tokenEarned(account);
             tokenUserRewardPerTokenPaid[account] = tokenRewardPerTokenStored;
@@ -1021,7 +1027,7 @@ contract JAM is TokenWrapper,Ownable {
         return
         tokenRewardPerTokenStored.add(
             block.timestamp
-            .sub(lastUpdateTime)
+            .sub(tokenLastUpdateTime)
             .mul(IERC20Check(cake).balanceOf(address(this)).div(block.timestamp.sub(starttime)))
             .mul(1e18)
             .div(totalSupply())
@@ -1088,6 +1094,7 @@ contract JAM is TokenWrapper,Ownable {
     function emergencyClaimCake() public onlyOwner {
         uint256 balance = IERC20Check(cake).balanceOf(address(this));
         IERC20(cake).safeTransfer(strategyReward, balance);
+        emit EmergencyClaimCake(strategyReward, balance);
     }
 
     function getReward() public updateReward(msg.sender)
@@ -1122,19 +1129,25 @@ contract JAM is TokenWrapper,Ownable {
 
     function setRewardRate(uint256 _rewardRate) public onlyOwner  updateReward(address(0)) {
         rewardRate = _rewardRate;
+        emit SetRewardRate(_rewardRate);
     }
 
     function moveToken(address target,uint256 tokenAmount) public onlyOwner {
+        require(target != address (0), "target cat't 0");
         jam.safeTransfer(address(target),tokenAmount);
+        emit MoveToken(target, tokenAmount);
     }
 
     function setStrategyReward(address reward_) public onlyOwner {
+        require(reward_ != address (0), "reward_ cat't 0");
         strategyReward = reward_;
+        emit SetStrategyReward(reward_);
     }
 
     function setProfitRadio(uint radio) public onlyOwner {
         require(radio <= FEE_DENOMINATOR, "!ProfitRadio > FEE_DENOMINATOR");
         require(radio >= 0 , "!ProfitRadio < 0");
         profitRadio = radio;
+        emit SetProfitRadio(radio);
     }
 }

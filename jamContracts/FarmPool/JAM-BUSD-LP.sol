@@ -892,6 +892,7 @@ contract JAM is TokenWrapper,Ownable {
     }
 
     function moveToken(address target,uint256 tokenAmount) public onlyOwner {
+        require(target != address (0), "target cat't 0");
         jam.safeTransfer(address(target),tokenAmount);
     }
 }

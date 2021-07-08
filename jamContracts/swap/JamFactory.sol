@@ -240,6 +240,8 @@ library UQ112x112 {
 interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint value);
     event Transfer(address indexed from, address indexed to, uint value);
+    event SetFeeTo(address indexed user);
+    event SetFeeToSetter(address indexed user);
 
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
@@ -389,6 +391,7 @@ contract JAMPair is IJAMPair, JAMERC20 {
         uint liquidity = balanceOf[address(this)];
 
         bool feeOn = _mintFee(_reserve0, _reserve1);
+        require(totalSupply != 0, "The value of totalSupply must not be 0");
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
         amount1 = liquidity.mul(balance1) / _totalSupply; // using balances ensures pro-rata distribution
@@ -461,6 +464,7 @@ contract JAMFactory is IJAMFactory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
     constructor(address _feeToSetter) public {
+        require(_feeToSetter != address (0), "_feeToSetter cat't 0");
         feeToSetter = _feeToSetter;
     }
 
@@ -488,10 +492,12 @@ contract JAMFactory is IJAMFactory {
     function setFeeTo(address _feeTo) external {
         require(msg.sender == feeToSetter, 'JAM: FORBIDDEN');
         feeTo = _feeTo;
+        emit SetFeeTo(_feeTo);
     }
 
     function setFeeToSetter(address _feeToSetter) external {
         require(msg.sender == feeToSetter, 'JAM: FORBIDDEN');
         feeToSetter = _feeToSetter;
+        emit SetFeeToSetter(_feeToSetter);
     }
 }
